@@ -1,6 +1,7 @@
 # © 2013-2014 ACSONE SA (<https://acsone.eu>).
 # © 2014 Serv. Tecnol. Avanzados - Pedro M. Baeza
 # © 2016 Akretion (Alexis de Lattre <alexis.delattre@akretion.com>)
+# Copyright 2023 Noviat
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl.html).
 
 from odoo import _, api, fields, models
@@ -27,7 +28,7 @@ class AccountMove(models.Model):
         states={"draft": [("readonly", False)]},
         default="none",
     )
-    has_payment_lines = fields.Boolean(compute="_compute_has_payment_lines")
+    payment_line_count = fields.Integer(compute="_compute_payment_line_count")
 
     @api.depends("payment_mode_id", "line_ids", "line_ids.payment_mode_id")
     def _compute_payment_order_ok(self):
@@ -39,9 +40,9 @@ class AccountMove(models.Model):
                 payment_mode = move.payment_mode_id
             move.payment_order_ok = payment_mode.payment_order_ok
 
-    def _compute_has_payment_lines(self):
+    def _compute_payment_line_count(self):
         for move in self:
-            move.has_payment_lines = self.env["account.payment.line"].search_count(
+            move.payment_line_count = self.env["account.payment.line"].search_count(
                 [("move_line_id", "in", self.line_ids.ids)]
             )
 
@@ -152,7 +153,7 @@ class AccountMove(models.Model):
             )
         return action
 
-    def action_view_payment_lines(self):
+    def action_payment_lines(self):
         self.ensure_one()
         pl_ids = (
             self.env["account.payment.line"]
