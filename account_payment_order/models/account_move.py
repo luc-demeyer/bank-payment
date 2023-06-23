@@ -27,6 +27,7 @@ class AccountMove(models.Model):
         states={"draft": [("readonly", False)]},
         default="none",
     )
+    has_payment_lines = fields.Boolean(compute="_compute_has_payment_lines")
 
     @api.depends("payment_mode_id", "line_ids", "line_ids.payment_mode_id")
     def _compute_payment_order_ok(self):
@@ -37,6 +38,12 @@ class AccountMove(models.Model):
             if not payment_mode:
                 payment_mode = move.payment_mode_id
             move.payment_order_ok = payment_mode.payment_order_ok
+
+    def _compute_has_payment_lines(self):
+        for move in self:
+            move.has_payment_lines = self.env["account.payment.line"].search_count(
+                [("move_line_id", "in", self.line_ids.ids)]
+            )
 
     def _prepare_new_payment_order(self, payment_mode=None):
         self.ensure_one()
@@ -144,3 +151,22 @@ class AccountMove(models.Model):
                 }
             )
         return action
+
+    def action_view_payment_lines(self):
+        self.ensure_one()
+        pl_ids = (
+            self.env["account.payment.line"]
+            ._search([("move_line_id", "in", self.line_ids.ids)])
+            ._result
+        )
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Payment Lines"),
+            "res_model": "account.payment.line",
+            "view_mode": "tree",
+            "domain": [("id", "in", pl_ids)],
+            "context": dict(self.env.context, account_payment_line_main_view=1),
+            "view_id": self.env.ref(
+                "account_payment_order.account_payment_line_tree"
+            ).id,
+        }
